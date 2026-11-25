@@ -4,10 +4,7 @@
 
 ## Sumário
 
-- [Comece por aqui](#comece-por-aqui)
-- [Contexto da sprint](#contexto-da-sprint)
 - [Glossário em linguagem simples](#glossário-em-linguagem-simples)
-- [Mapa do repositório](#mapa-do-repositório)
 - [Visão geral dos 18 conjuntos de dados](#visão-geral-dos-18-conjuntos-de-dados)
 - [Como os dados se conectam](#como-os-dados-se-conectam)
 - [Dicionário dos 5 CSVs](#dicionário-dos-5-csvs)
@@ -16,61 +13,6 @@
 - [Checklist de limpeza](#checklist-de-limpeza)
 - [Dúvidas para o tech lead](#dúvidas-para-o-tech-lead)
 - [Próximos passos da Sprint 1](#próximos-passos-da-sprint-1)
-
-## Comece por aqui
-
-**Resumo em 30 segundos**
-
-- **O que é este guia:** o mapa de todos os dados da Sprint 1 e o dicionário de cada coluna, em linguagem simples.
-- **O que temos:** 5 arquivos CSV (91 linhas no total) e um `schema.sql` que cria 13 tabelas (167 colunas). As 236 colunas estão explicadas uma a uma neste guia.
-- **Especificação:** o `gastrocore_schema.json` confirma as 13 tabelas, as chaves estrangeiras e os KPIs, e documenta só 3 dos 5 CSVs.
-- **Dois cenários separados:** os CSVs das filiais de PE (março/2026) não têm chave em comum com os CSVs das unidades do `schema.sql` (novembro/2026).
-- **Qualidade dos CSVs:** nenhum valor nulo, nenhuma linha duplicada, e os cálculos internos batem. A limpeza é de padronização (nomes, categorias, unidades, zeros que significam "sem dado"), não de correção de números.
-- **Banco quase vazio:** só 3 das 13 tabelas têm dados (o seed de demonstração). As outras 10 sobem vazias.
-
-**Quero... então vou para**
-
-| Quero... | Vá para |
-| --- | --- |
-| Entender a sprint, as metas e os KPIs | [Contexto da sprint](#contexto-da-sprint) |
-| Saber o que significa cada sigla (CMV, FC, PAX, KDS...) | [Glossário em linguagem simples](#glossário-em-linguagem-simples) |
-| Ver quais arquivos existem no repositório | [Mapa do repositório](#mapa-do-repositório) |
-| Ver as 18 fontes de dados em uma tabela só | [Visão geral dos 18 conjuntos de dados](#visão-geral-dos-18-conjuntos-de-dados) |
-| Entender como as fontes se ligam entre si | [Como os dados se conectam](#como-os-dados-se-conectam) |
-| Saber o que cada coluna dos CSVs significa | [Dicionário dos 5 CSVs](#dicionário-dos-5-csvs) |
-| Saber o que cada coluna das tabelas do banco significa | [Dicionário das 13 tabelas do banco](#dicionário-das-13-tabelas-do-banco) |
-| Ver o que os dados já mostram | [Primeiros sinais nos dados](#primeiros-sinais-nos-dados) |
-| Ver o que precisa ser limpo | [Checklist de limpeza](#checklist-de-limpeza) |
-| Ver as perguntas para o tech lead | [Dúvidas para o tech lead](#dúvidas-para-o-tech-lead) |
-| Ver o que falta entregar na sprint | [Próximos passos da Sprint 1](#próximos-passos-da-sprint-1) |
-
-## Contexto da sprint
-
-Estamos na **Sprint 1 (Diagnóstico e Data Quality)** da Trilha 3 (Engenharia de Dados e BI) do Projeto Integrador APONTI. O cliente-piloto é a Bondegusto e o sistema é o GastroCore ERP v0.3.0.
-
-- **Entrega da sprint:** auditar as 13 tabelas do `schema.sql` e os CSVs, e entregar um **Dicionário de Dados** e um **validador em Python** (PB ≥ PL, FC ≥ 1, rupturas de estoque e lotes vencidos).
-- **Missão da trilha:** transformar os apontamentos do KDS e do Kardex em economia medida em reais, usando a arquitetura Medallion (Bronze, Silver, Gold), Star Schema, Curva ABC e detecção de anomalias com Z-Score.
-- **Regras de trabalho:** entregar por PR na branch `staging`, isolado em `analytics/squads/da-<N>/`; nunca usar dados reais de produção; trabalhar em Postgres local no Docker.
-- **Quem é quem:** sistema mantido pela CESIC Tecnologias; cliente-piloto Bondegusto Alimentação & Serviços Ltda; contato oficial admcesic@gmail.com.
-- **Ambientes (segundo o JSON):** homologação `https://hml.gastrocore.cesic.com.br`, produção `https://gastrocore.cesic.com.br` e portal `https://www.cesic.com.br/portal-aponti`.
-
-| Sprint | Foco | Entrega |
-| --- | --- | --- |
-| **1 (atual)** | Diagnóstico e Data Quality | Auditoria das 13 tabelas e dos CSVs, dicionário, validador Python |
-| 2 | Medallion e Star Schema | `dim_unidade`, `dim_receita`, `dim_tempo`, fatos de CMV, desperdício, termometria e consumo Kardex |
-| 3 | Gold, Curva ABC e Z-Score | Views de CMV e RDC 216, Curva ABC 80/15/5, anomalias Z > +2 SD, previsão sazonal |
-| 4 | BI executivo e pitch | Painel (Metabase, Power BI ou Streamlit) só sobre `analytics.*` e pitch de economia em R$ e kg |
-
-**Metas de UAN (KPIs) que os dados precisam sustentar**
-
-| KPI | Em palavras simples | Fórmula | Meta | Fonte de dados hoje |
-| --- | --- | --- | --- | --- |
-| CMV % (`CMV_%`) | De cada R$ 100 faturados, quanto vai para ingredientes | Custo total de insumos ÷ faturamento bruto × 100 | ≤ 32,0% (atenção 32,1 a 36%; crítico > 36%) | `consumo_cmv.csv` (falta o faturamento, ver dúvida 1) |
-| Margem bruta % (`MARGEM_%`, semáforo da Regra 3 Segundos) | Quanto sobra do faturamento depois de pagar os ingredientes | (Faturamento menos custo) ÷ faturamento × 100 | > 55% verde; 30 a 55% âmbar; < 30% vermelho | Falta o faturamento (dúvida 1) |
-| Resto-ingesta por PAX (`RESTO_INGESTA_PAX`) | Quantos gramas cada pessoa deixa no prato, em média | Peso do resto dos pratos (g) ÷ refeições servidas | ≤ 35,0 g por refeição | `desperdicio_rdc216.csv` |
-| Conformidade térmica (`IC_TERMICO`) | Percentual de medições de temperatura dentro do limite | Logs conformes ÷ total de logs × 100 | Quente ≥ 60 °C (Hot Box ≥ 65 °C); fria ≤ 4 °C proteínas e ≤ 5 °C hortifrúti | `temperature_logs` e `hot_box_deliveries` (vazias); `desperdicio_rdc216.csv` traz a temperatura das sobras |
-
-Fontes: briefing de sprint e dicionário de dados (PDFs da CESIC Tecnologias) e `docs/gastrocore_schema.json` deste repositório.
 
 ## Glossário em linguagem simples
 
@@ -95,22 +37,6 @@ Fontes: briefing de sprint e dicionário de dados (PDFs da CESIC Tecnologias) e 
 | **Star Schema** | Modelo com fatos (os números, como CMV e desperdício) ligados a dimensões (quem, onde e quando: unidade, receita, tempo). | Sprint 2 |
 | **RLS** | Regra de segurança do Supabase que define quem pode ler e gravar cada linha. | `schema.sql` |
 | **Tenant e white-label** | Tenant é a empresa cliente que usa o sistema. White-label é usar o sistema com a marca dela. | `tenant_configs` |
-
-## Mapa do repositório
-
-O repositório tem só um `README.md` vazio e a pasta `docs/` com 11 arquivos. Vamos usar 7 deles: os 5 CSVs, o `schema.sql` e o `gastrocore_schema.json`. Ainda não existe `analytics/squads/`.
-
-| Arquivo | Tipo | Para que serve | Uso na trilha de dados |
-| --- | --- | --- | --- |
-| `gastrocore_filiais_pe.csv` | Dados (5 linhas) | Cadastro das 5 filiais em PE | Base da `dim_unidade` (Bronze) |
-| `gastrocore_desperdicio_rdc216.csv` | Dados (30 linhas) | Pesagens de sobra, resto-ingesta e aparas, 01 a 04/03/2026 | `fato_desperdicio`, KPI resto-ingesta, Pareto, Z-Score |
-| `gastrocore_consumo_cmv.csv` | Dados (20 linhas) | Consumo previsto e real de insumos e desvio de CMV, 01 a 04/03/2026 | Fato de CMV, Curva ABC, fator de correção |
-| `gastrocore_processamento_proteinas.csv` | Dados (18 linhas) | Rendimento de proteínas: bruto, descongelado e limpo, 02 a 14/11/2026 | Validação PB ≥ PL e FC ≥ 1 (Sprint 1) |
-| `gastrocore_requisicoes_compras.csv` | Dados (18 linhas) | Requisições, transferências e solicitações de compra, 02 a 13/11/2026 | Rupturas de estoque, consumo Kardex |
-| `schema.sql` | DDL PostgreSQL | Cria as 13 tabelas do ERP, as políticas RLS e um seed de demonstração | Fonte Bronze |
-| `gastrocore_schema.json` | Especificação | Resume as 13 tabelas (só as colunas-chave), 3 dos 5 CSVs e as fórmulas dos KPIs | Referência rápida de colunas e metas |
-
-**Não usaremos:** `openapi.yaml`, `docker-compose.yml`, `Dockerfile` e `github-actions-ci-cd.yml`.
 
 ## Visão geral dos 18 conjuntos de dados
 
